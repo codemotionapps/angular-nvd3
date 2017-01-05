@@ -351,8 +351,7 @@
 									var concatMe;
 									arrayRects.each(function(d){
 										var d3el = d3.select(this);
-										debugger;
-										if(d3el.attr('height') != 1){
+										if(d3el.attr('height') !== '1'){
 											concatMe = 'labels[' + it + ']["' + d.key;
 											d3el.attr('data-ng-mouseover', concatMe + '"].hover=true;')
 												.attr('data-ng-mouseleave', concatMe + '"].hover=false;');

@@ -40,7 +40,7 @@ module.exports = function(grunt){
         jshint: {
             options: {
                 jshintrc: true,
-				reporterOutput: "",
+				reporterOutput: ''
             },
             afterconcat: ['dist/<%= pkg.name %>.js'],
             files: ['Gruntfile.js', 'src/**/*.js', 'test/**/*.js']

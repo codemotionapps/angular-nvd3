@@ -355,7 +355,7 @@
 									var concatMe;
 									arrayRects.each(function(d){
 										var d3el = d3.select(this);
-										if(d3el.attr('height') != 1){
+										if(d3el.attr('height') !== '1'){
 											concatMe = 'labels[' + it + ']["' + d.key;
 											d3el.attr('data-ng-mouseover', concatMe + '"].hover=true;')
 												.attr('data-ng-mouseleave', concatMe + '"].hover=false;');
@@ -400,7 +400,7 @@
 										var detached = d3.select(document.createElementNS('http://www.w3.org/2000/svg', 'rect'));
 										var elem = d3.select(this);
 										detached.attr('y', -2)
-											.attr('x', parseInt(lowestLine[0][0].childNodes[0].attributes.x2.value) + elem[0][0].transform.baseVal[0].matrix.e, 10)
+											.attr('x', parseInt(lowestLine[0][0].childNodes[0].attributes.x2.value, 10) + elem[0][0].transform.baseVal[0].matrix.e)
 											.attr('width', elem[0][0].width.baseVal.value)
 											.classed('greyrect', true);
 										lowestLine[0][0].appendChild(detached[0][0]);
