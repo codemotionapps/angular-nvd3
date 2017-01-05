@@ -16,7 +16,7 @@
 
     angular.module('nvd3', [])
 
-        .directive('nvd3', ['nvd3Utils', function(nvd3Utils){
+        .directive('nvd3', ['nvd3Utils', '$compile', function(nvd3Utils, $compile){
             return {
                 restrict: 'AE',
                 scope: {
@@ -46,6 +46,24 @@
                     //basic directive configuration
                     scope._config = angular.extend(defaultConfig, scope.config);
 
+					//pie labels
+					scope.deregisters = [];
+                    
+                    scope.labeler = undefined;
+                    
+                    scope.pieLabels = function(svg, labeler){
+                        svg.selectAll('g.nv-slice')[0].forEach(function(d, i){
+                            var el = angular.element(d).on('mouseenter', function(){
+                                labeler.html(scope.data[i].text);
+                            }).on('mouseleave', function(){
+                                labeler.html('');
+                            });
+                            scope.deregisters.push(function(){
+                                el.off('mouseenter').off('mouseleave');
+                            });
+                        });
+					};
+					
                     //directive global api
                     scope.api = {
                         // Fully refresh directive
@@ -68,6 +86,13 @@
                                     scope.svg.datum(angular.copy(scope.data)).call(scope.chart);
                                 } else {
                                     scope.svg.datum(scope.data).call(scope.chart);
+                                }
+								
+								scope.deregisters.forEach(function(d){
+                                    d.call();
+                                });
+                                if(scope.options.chart.type === 'pieChart'){
+                                    scope.pieLabels(scope.svg, scope.labeler);
                                 }
                             } else {
                                 scope.api.refresh();
@@ -257,6 +282,14 @@
 
                                 // Select the current element to add <svg> element and to render the chart in
                                 scope.svg = d3.select(element[0]).insert('svg', '.caption');
+								scope.chart.tooltip.enabled(false); //ORA
+                                
+                                if(scope.options.chart.type === 'pieChart'){
+                                    scope.svg.attr('viewBox', '0 0 300 300')
+                                    	.attr('preserveAspectRatio', 'xMidYMid meet');
+                                    scope.labeler = scope.svg.append('g')
+                                    	.classed('labeler', true);
+                                } //ORA
                                 if (h = scope.options.chart.height) {
                                     if (!isNaN(+h)) h += 'px'; //check if height is number
                                     scope.svg.attr('height', h).style({height: h});
@@ -270,6 +303,110 @@
 
                                 scope.svg.datum(data).call(scope.chart);
 
+                                if(scope.labeler !== undefined){
+                                    scope.svg[0][0].appendChild(scope.labeler[0][0]);
+                                }
+                                
+                                if(scope.options.chart.type === 'pieChart')
+                                    scope.pieLabels(scope.svg, scope.labeler);
+                                
+                                if(scope.options.chart.type === 'multiBarChart'){
+
+									scope.labels = [];
+									scope.labelSequence = [];
+									scope.printLabel = [];
+									var j = 0;
+									data.forEach(function(d){
+										var i = 0;
+										scope.labelSequence.push(d.key);
+										d.values.forEach(function(value){
+											if(j === 0) scope.labels[i] = {};
+											if(value.y !== 0)
+												scope.labels[i][d.key] = {
+													label: value.y,
+													hover: false
+												};
+											i++;
+										});
+										j++;
+									});
+
+									var zeroLabel = '<tspan dy="-3">0</tspan>';
+
+									//labels to string
+									scope.labels.forEach(function(d, key){
+										scope.printLabel[key] = '';
+										var labels = Object.keys(d).length - 1;
+										for(var i = 0; i < scope.labelSequence.length; i++){
+											if(d[scope.labelSequence[i]] && d[scope.labelSequence[i]] !== 0){
+												scope.printLabel[key] += '<tspan x="0" dy="' + (scope.printLabel[key] === '' ? (labels) * -18 : 18) + '" data-ng-class="{active:labels[' + key + '][\'' + scope.labelSequence[i] + '\'].hover}">' + d[scope.labelSequence[i]].label + ' ' + scope.labelSequence[i] + '</tspan>';
+												labels--;
+											}
+										}
+										if(scope.printLabel[key] === ''){
+											scope.printLabel[key] = zeroLabel;
+										}
+									});
+
+									var lastRects, rectWidth, heightForXvalue = [], countSeriesDisplayed = scope.labelSequence.length; // Used for grouped mode
+
+									var arrayRects = scope.svg.selectAll('rect.positive');
+									var it = 0;
+									var concatMe;
+									arrayRects.each(function(d){
+										var d3el = d3.select(this);
+										if(d3el.attr('height') != 1){
+											concatMe = 'labels[' + it + ']["' + d.key;
+											d3el.attr('data-ng-mouseover', concatMe + '"].hover=true;')
+												.attr('data-ng-mouseleave', concatMe + '"].hover=false;');
+											$compile(this)(scope);
+										}
+										it++;
+										if(it === scope.labels.length){
+											it = 0;
+										}
+									});
+
+									lastRects = scope.svg.selectAll('g.nv-group')
+										.filter(function(d, i){
+											return i === countSeriesDisplayed - 1;
+										})
+										.selectAll('rect.positive');
+
+									rectWidth = lastRects[0][0].width.baseVal.value;
+
+									var groupLabels = scope.svg.select('g.nv-barsWrap').append('g');
+									scope.$watch(function(){ return nv.utils.transitionReady; }, function(transReady){
+										if(transReady)
+											lastRects.each(function(d, index){
+												var transformAttr = d3.select(this).attr('transform');
+												transformAttr = 'translate(' + (parseFloat(transformAttr.substr(10, transformAttr.length - 13)) + rectWidth / 2) + ',0)';
+												var d3el = groupLabels.append('text');
+												var yPos = parseFloat(d3.select(this).attr('y'))-7;
+												d3el.attr('y', (angular.isUndefined(heightForXvalue[index]) ? yPos : heightForXvalue[index]) - 2)
+													.attr('transform', transformAttr)
+													.attr('class', 'bar-chart-label')
+													.style('text-anchor', 'middle')
+													.html(scope.printLabel[index])
+													.call(function(item){
+														$compile(item[0][0])(scope);
+													});
+											});
+									});
+
+									var lowestLine = scope.svg.select('.nv-y > .nv-wrap > g > .tick.zero');
+									lastRects.each(function(d, index){
+										if(scope.printLabel[index] !== zeroLabel) return;
+										var detached = d3.select(document.createElementNS('http://www.w3.org/2000/svg', 'rect'));
+										var elem = d3.select(this);
+										detached.attr('y', -2)
+											.attr('x', parseInt(lowestLine[0][0].childNodes[0].attributes.x2.value) + elem[0][0].transform.baseVal[0].matrix.e, 10)
+											.attr('width', elem[0][0].width.baseVal.value)
+											.classed('greyrect', true);
+										lowestLine[0][0].appendChild(detached[0][0]);
+									});
+
+                                }
                                 // update zooming if exists
                                 if (scope.chart && scope.chart.zoomRender) scope.chart.zoomRender();
                             }
@@ -277,6 +414,9 @@
 
                         // Fully clear directive element
                         clearElement: function (){
+							scope.deregisters.forEach(function(d){
+                                d.call();
+                            });
                             element.find('.title').remove();
                             element.find('.subtitle').remove();
                             element.find('.caption').remove();
