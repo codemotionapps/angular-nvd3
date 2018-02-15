@@ -26,7 +26,7 @@
     "name": "Konstantin Skipor"
   },
   "dependencies": {
-    "nvd3": "git://github.com/codemotionapps/nvd3.git#bbbc3399ce199a0c77995c4090fe99c363cd965c"
+    "nvd3": "git://github.com/codemotionapps/nvd3.git#ff186af935eb97138e75cb3a35955f73c23c7f8b"
   },
   "devDependencies": {
     "angular-mocks": "^1.x",
